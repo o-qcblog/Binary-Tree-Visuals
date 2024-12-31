@@ -1,90 +1,98 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <title>Balanced vs. Random Unbalanced Trees (PyScript)</title>
+  <meta charset="UTF-8" />
+  <title>Balanced vs. Random Unbalanced Binary Trees</title>
 
-    <!-- 1) Include the latest PyScript (CSS + JS). -->
-    <link rel="stylesheet" href="https://pyscript.net/latest/pyscript.css" />
-    <script defer src="https://pyscript.net/latest/pyscript.js"></script>
+  <!-- 1) Include PyScript -->
+  <link rel="stylesheet" href="https://pyscript.net/latest/pyscript.css" />
+  <script defer src="https://pyscript.net/latest/pyscript.js"></script>
 
-    <!-- 2) Tell PyScript which Python packages to install at runtime. -->
-    <py-config>
-    packages = [
-        "networkx",
-        "matplotlib"
-    ]
-    </py-config>
+  <!-- 2) PyScript runtime configuration: packages to install -->
+  <py-config>
+  packages = [
+    "matplotlib",
+    "networkx"
+  ]
+  </py-config>
 
-    <!-- Simple styling (feel free to customize). -->
-    <style>
-        body {
-            font-family: sans-serif;
-            margin: 20px;
-        }
-        .slider-container {
-            max-width: 500px;
-            margin: 0 auto 1em auto;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-        .slider-container label {
-            margin-right: 0.5em;
-        }
-        #leaves-slider {
-            width: 300px;
-            margin-right: 1em;
-        }
-        #output-area {
-            max-width: 900px;
-            margin: 0 auto;
-            text-align: center;
-        }
-        img {
-            max-width: 90%;
-            margin: 0.5em 0;
-        }
-    </style>
+  <!-- Basic styling -->
+  <style>
+    body {
+      font-family: sans-serif;
+      margin: 20px;
+      text-align: center;
+    }
+    h1 {
+      margin-bottom: 0.3em;
+    }
+    .slider-section {
+      margin-bottom: 1em;
+    }
+    #leaves-slider {
+      width: 300px;
+      margin: 0 1em;
+    }
+    #plots-area img {
+      max-width: 90%;
+      margin-top: 1em;
+    }
+    /* Make the two plots appear one below the other */
+    .plot-container {
+      margin: 1em auto;
+      display: block;
+    }
+  </style>
 </head>
 <body>
 
-<div class="slider-container">
-    <label for="leaves-slider">Number of Leaves:</label>
-    <input 
-        id="leaves-slider" 
-        type="range" 
-        min="1" 
-        max="20" 
-        step="1" 
-        value="4" 
-        oninput="updateTrees()" 
-    />
-    <span id="slider-value">4</span>
+<h1>Binary Tree Visuals: Balanced vs. Random Unbalanced</h1>
+<p>
+  This page uses <strong>PyScript</strong> to run Python in your browser.
+  Move the slider to pick the number of leaves.
+</p>
+
+<!-- Slider + label -->
+<div class="slider-section">
+  <label for="leaves-slider">Number of Leaves:</label>
+  <input 
+    type="range" 
+    id="leaves-slider" 
+    min="1" 
+    max="20" 
+    step="1" 
+    value="4"
+    oninput="updatePlots()"
+  />
+  <span id="slider-value">4</span>
 </div>
 
-<div id="output-area">
-    <!-- The generated plots will appear here. -->
-</div>
+<!-- Where we display the final plots -->
+<div id="plots-area"></div>
 
 <!-- 
-    The main PyScript code block.
-    We define all Python logic (tree generation, plotting, etc.).
-    We'll also define a function that returns an HTML string with <img> tags 
-    for the two trees, which we then inject into the #output-area div.
+  Main PyScript code block:
+  We define the same Python logic as your code: 
+  - BFS-based balanced tree
+  - random unbalanced tree
+  - a function to draw them with matplotlib 
+  - a function returning base64 <img> tags 
 -->
 <py-script>
 import random
+import io
+import base64
 import networkx as nx
 import matplotlib
 import matplotlib.pyplot as plt
-import io
-import base64
 
-# Use a non-interactive backend that allows us to generate PNGs in memory.
+# Use Agg backend for headless plotting
 matplotlib.use("Agg")
 
 def calculate_height(tree, root=0):
+    """
+    Calculates the height of the tree from the given root.
+    """
     if not tree.nodes:
         return 0
     undirected = tree.to_undirected()
@@ -92,131 +100,162 @@ def calculate_height(tree, root=0):
     return max(lengths.values())
 
 def generate_balanced_tree(num_leaves):
+    """
+    Balanced binary tree with exactly num_leaves leaves.
+    BFS expansion -> each expansion +1 leaf.
+    """
     if num_leaves < 1:
         return nx.DiGraph()
     if num_leaves == 1:
-        tree = nx.DiGraph()
-        tree.add_node(0)
-        return tree
-
-    tree = nx.DiGraph()
+        t = nx.DiGraph()
+        t.add_node(0)
+        return t
+    
+    t = nx.DiGraph()
     root = 0
-    tree.add_node(root)
+    t.add_node(root)
     leaves = [root]
     leaves_count = 1
     next_label = 1
-
+    
     while leaves_count < num_leaves:
-        parent = leaves.pop(0)
+        parent = leaves.pop(0)  # BFS
         left_child = next_label
         right_child = next_label + 1
-        tree.add_node(left_child)
-        tree.add_node(right_child)
-        tree.add_edge(parent, left_child)
-        tree.add_edge(parent, right_child)
+        t.add_node(left_child)
+        t.add_node(right_child)
+        t.add_edge(parent, left_child)
+        t.add_edge(parent, right_child)
         leaves_count += 1
         next_label += 2
         leaves.append(left_child)
         leaves.append(right_child)
-
-    return tree
+    
+    return t
 
 def generate_unbalanced_tree_random(num_leaves):
+    """
+    Random unbalanced tree with exactly num_leaves leaves.
+    Each expansion picks a random leaf to expand.
+    """
     if num_leaves < 1:
         return nx.DiGraph()
     if num_leaves == 1:
-        tree = nx.DiGraph()
-        tree.add_node(0)
-        return tree
-
-    tree = nx.DiGraph()
+        t = nx.DiGraph()
+        t.add_node(0)
+        return t
+    
+    t = nx.DiGraph()
     root = 0
-    tree.add_node(root)
+    t.add_node(root)
     leaves = [root]
     leaves_count = 1
     next_label = 1
-
+    
     while leaves_count < num_leaves:
         parent = random.choice(leaves)
         leaves.remove(parent)
         left_child = next_label
         right_child = next_label + 1
-        tree.add_node(left_child)
-        tree.add_node(right_child)
-        tree.add_edge(parent, left_child)
-        tree.add_edge(parent, right_child)
+        t.add_node(left_child)
+        t.add_node(right_child)
+        t.add_edge(parent, left_child)
+        t.add_edge(parent, right_child)
         leaves_count += 1
         next_label += 2
         leaves.append(left_child)
         leaves.append(right_child)
-
-    return tree
+    
+    return t
 
 def get_rooted_positions(tree, root=0):
+    """
+    Place nodes in layers based on distance from root using multipartite_layout.
+    Then swap x,y so it's top-to-bottom.
+    """
     if not tree.nodes:
         return {}
+    
     undirected = tree.to_undirected()
     dist_from_root = nx.shortest_path_length(undirected, source=root)
+    
     for node, dist in dist_from_root.items():
         tree.nodes[node]['subset'] = dist
+
     pos = nx.multipartite_layout(tree, subset_key='subset', align='vertical', scale=2.0)
-    pos_swapped = {node: (y, -x) for node, (x, y) in pos.items()}
+    pos_swapped = {n: (y, -x) for n, (x, y) in pos.items()}
     return pos_swapped
 
-def draw_tree(tree, title):
-    fig, ax = plt.subplots(figsize=(5, 5))
-    height = calculate_height(tree, root=0)
-    pos = get_rooted_positions(tree, root=0)
+def draw_tree(tree, title, root=0):
+    """
+    Returns a base64-encoded PNG of the drawn tree.
+    """
+    fig, ax = plt.subplots(figsize=(5,5))
+    height = calculate_height(tree, root=root)
+    pos = get_rooted_positions(tree, root=root)
     nx.draw(
-        tree, pos, with_labels=True, node_size=600, 
+        tree, pos, with_labels=True, node_size=600,
         node_color="lightblue", arrows=False, ax=ax
     )
     ax.set_title(f"{title}\nHeight: {height}", fontsize=12)
     ax.axis("off")
     fig.tight_layout()
 
+    # Convert to base64
     buf = io.BytesIO()
     fig.savefig(buf, format="png", bbox_inches="tight")
     buf.seek(0)
-    img_b64 = base64.b64encode(buf.read()).decode("utf-8")
+    b64 = base64.b64encode(buf.read()).decode("utf-8")
     plt.close(fig)
-    return img_b64
+    return b64
 
-def generate_trees_html(num_leaves):
-    balanced = generate_balanced_tree(num_leaves)
-    bal_b64 = draw_tree(balanced, f"Balanced (Leaves={num_leaves})")
+def generate_html_plots(num_leaves):
+    """
+    Generate both balanced + random unbalanced trees.
+    Return them as two <img> tags in an HTML string.
+    """
+    bal_tree = generate_balanced_tree(num_leaves)
+    bal_img = draw_tree(bal_tree, f"Balanced (Leaves={num_leaves})")
 
-    unbalanced = generate_unbalanced_tree_random(num_leaves)
-    unbal_b64 = draw_tree(unbalanced, f"Random Unbalanced (Leaves={num_leaves})")
+    unb_tree = generate_unbalanced_tree_random(num_leaves)
+    unb_img = draw_tree(unb_tree, f"Random Unbalanced (Leaves={num_leaves})")
 
     html = f"""
-    <div>
-        <img src="data:image/png;base64,{bal_b64}" alt="Balanced Tree" />
+    <div class="plot-container">
+      <img src="data:image/png;base64,{bal_img}" alt="Balanced Tree"/>
     </div>
-    <div>
-        <img src="data:image/png;base64,{unbal_b64}" alt="Random Unbalanced Tree" />
+    <div class="plot-container">
+      <img src="data:image/png;base64,{unb_img}" alt="Random Unbalanced Tree"/>
     </div>
     """
     return html
 </py-script>
 
+<!-- 
+  We add a small JS function to read the slider value, 
+  call our Python function 'generate_html_plots(num_leaves)', 
+  and then inject the returned HTML into #plots-area.
+-->
 <script>
-async function updateTrees() {
-    const slider = document.getElementById("leaves-slider");
-    const value = slider.value;
-    document.getElementById("slider-value").innerText = value;
+async function updatePlots() {
+  const slider = document.getElementById("leaves-slider");
+  const val = slider.value;
+  document.getElementById("slider-value").textContent = val;
 
-    const code = `
-result = generate_trees_html(${value})
-result
-    `;
-    let result = await pyscript.interpreter.run(code);
-    let htmlStr = result.result.toString();
-    document.getElementById("output-area").innerHTML = htmlStr;
+  // We'll run a Python snippet that calls generate_html_plots(val)
+  const code = `
+results = generate_html_plots(${val})
+results
+  `;
+  // Use the PyScript global interpreter
+  let r = await pyscript.interpreter.run(code);
+  // r.result is a PyProxy object with the string result
+  let htmlStr = r.result.toString();
+  document.getElementById("plots-area").innerHTML = htmlStr;
 }
 
 window.addEventListener("DOMContentLoaded", () => {
-    updateTrees();
+  updatePlots(); // on page load, draw initial trees
 });
 </script>
 
