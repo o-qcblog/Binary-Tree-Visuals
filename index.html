@@ -50,6 +50,7 @@
       </div>
     </div>
   </main>
+
   <script>
     async function main() {
       try {
@@ -61,8 +62,109 @@ await micropip.install("matplotlib")
         `);
 
         const pythonCode = `
-# (Insert Python code here from your script)
+import networkx as nx
+import matplotlib
+matplotlib.use('Agg')
+import matplotlib.pyplot as plt
+import random
+from io import BytesIO
+import base64
+
+def calculate_height(tree, root=0):
+    if not tree.nodes:
+        return 0
+    undirected = tree.to_undirected()
+    lengths = nx.shortest_path_length(undirected, source=root)
+    return max(lengths.values())
+
+def generate_balanced_tree(num_leaves):
+    if num_leaves < 1:
+        return nx.DiGraph()
+    if num_leaves == 1:
+        tree = nx.DiGraph()
+        tree.add_node(0)
+        return tree
+    tree = nx.DiGraph()
+    root = 0
+    tree.add_node(root)
+    leaves = [root]
+    leaves_count = 1
+    next_label = 1
+    while leaves_count < num_leaves:
+        parent = leaves.pop(0)
+        left_child = next_label
+        right_child = next_label + 1
+        tree.add_node(left_child)
+        tree.add_node(right_child)
+        tree.add_edge(parent, left_child)
+        tree.add_edge(parent, right_child)
+        leaves_count += 1
+        next_label += 2
+        leaves.append(left_child)
+        leaves.append(right_child)
+    return tree
+
+def generate_unbalanced_tree_random(num_leaves):
+    if num_leaves < 1:
+        return nx.DiGraph()
+    if num_leaves == 1:
+        tree = nx.DiGraph()
+        tree.add_node(0)
+        return tree
+    tree = nx.DiGraph()
+    root = 0
+    tree.add_node(root)
+    leaves = [root]
+    leaves_count = 1
+    next_label = 1
+    while leaves_count < num_leaves:
+        parent = random.choice(leaves)
+        leaves.remove(parent)
+        left_child = next_label
+        right_child = next_label + 1
+        tree.add_node(left_child)
+        tree.add_node(right_child)
+        tree.add_edge(parent, left_child)
+        tree.add_edge(parent, right_child)
+        leaves_count += 1
+        next_label += 2
+        leaves.append(left_child)
+        leaves.append(right_child)
+    return tree
+
+def get_rooted_positions(tree, root=0):
+    if not tree.nodes:
+        return {}
+    undirected = tree.to_undirected()
+    dist_from_root = nx.shortest_path_length(undirected, source=root)
+    for node, dist in dist_from_root.items():
+        tree.nodes[node]['subset'] = dist
+    pos = nx.multipartite_layout(tree, subset_key='subset', align='vertical', scale=2.0)
+    pos_swapped = {node: (y, -x) for node, (x, y) in pos.items()}
+    return pos_swapped
+
+def draw_tree(tree, title, root=0):
+    height = calculate_height(tree, root)
+    pos = get_rooted_positions(tree, root)
+    fig, ax = plt.subplots()
+    nx.draw(tree, pos, with_labels=True, node_size=600, node_color="lightblue", arrows=False, ax=ax)
+    ax.set_title(f"{title}\\nHeight: {height}", fontsize=12)
+    ax.axis("off")
+    buf = BytesIO()
+    fig.savefig(buf, format='png')
+    buf.seek(0)
+    data = base64.b64encode(buf.read()).decode('utf-8')
+    plt.close(fig)
+    return data
+
+def draw_trees(num_leaves):
+    balanced = generate_balanced_tree(num_leaves)
+    unbalanced = generate_unbalanced_tree_random(num_leaves)
+    img_bal = draw_tree(balanced, f"Balanced (Leaves={num_leaves})")
+    img_unbal = draw_tree(unbalanced, f"Random Unbalanced (Leaves={num_leaves})")
+    return (img_bal, img_unbal)
         `;
+
         await pyodide.runPythonAsync(pythonCode);
 
         window.drawTrees = async function (numLeaves) {
