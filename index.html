@@ -1,206 +1,105 @@
 <!DOCTYPE html>
-<html>
-  <head>
-    <meta charset="utf-8" />
-    <title>Binary Tree Visuals</title>
-
-    <!-- Load Pyodide (specific version) -->
-    <script src="https://cdn.jsdelivr.net/pyodide/v0.23.2/full/pyodide.js"></script>
-
-    <style>
-      body {
-        font-family: sans-serif;
-        margin: 20px;
-      }
-      #slider {
-        width: 300px;
-      }
-      .plots-container {
-        display: flex;
-        gap: 40px;
-        margin-top: 20px;
-      }
-      .plot-section {
-        text-align: center;
-      }
-      img {
-        margin-top: 10px;
-        border: 1px solid #ccc;
-      }
-    </style>
-  </head>
-  <body>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Binary Tree Visuals</title>
+  <script src="https://cdn.jsdelivr.net/pyodide/v0.23.2/full/pyodide.js"></script>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 20px;
+    }
+    #slider {
+      width: 300px;
+    }
+    .plots-container {
+      display: flex;
+      justify-content: center;
+      gap: 40px;
+      margin-top: 20px;
+    }
+    .plot-section {
+      text-align: center;
+    }
+    img {
+      margin-top: 10px;
+      border: 1px solid #ccc;
+      max-width: 100%;
+      height: auto;
+    }
+  </style>
+</head>
+<body>
+  <header>
     <h1>Binary Tree Visuals</h1>
-    <p>
-      # Leaves:
-      <input type="range" id="slider" min="1" max="20" value="4" />
-      <span id="slider-value">4</span>
-    </p>
+  </header>
+  <main>
+    <label for="slider"># Leaves:</label>
+    <input type="range" id="slider" min="1" max="20" value="4">
+    <span id="slider-value">4</span>
 
     <div class="plots-container">
       <div class="plot-section">
         <h3 id="title-balanced"></h3>
-        <img id="img-balanced" />
+        <img id="img-balanced" alt="Balanced Binary Tree Visualization">
       </div>
       <div class="plot-section">
         <h3 id="title-unbalanced"></h3>
-        <img id="img-unbalanced" />
+        <img id="img-unbalanced" alt="Unbalanced Binary Tree Visualization">
       </div>
     </div>
-
-    <script>
-      async function main() {
-        // Load Pyodide
+  </main>
+  <script>
+    async function main() {
+      try {
         window.pyodide = await loadPyodide();
-
-        // Install needed packages
         await pyodide.runPythonAsync(`
 import micropip
 await micropip.install("networkx")
 await micropip.install("matplotlib")
         `);
 
-        // Define your Python code
         const pythonCode = `
-import networkx as nx
-import matplotlib
-matplotlib.use('Agg')
-import matplotlib.pyplot as plt
-import random
-from io import BytesIO
-import base64
-
-def calculate_height(tree, root=0):
-    if not tree.nodes:
-        return 0
-    undirected = tree.to_undirected()
-    lengths = nx.shortest_path_length(undirected, source=root)
-    return max(lengths.values())
-
-def generate_balanced_tree(num_leaves):
-    if num_leaves < 1:
-        return nx.DiGraph()
-    if num_leaves == 1:
-        tree = nx.DiGraph()
-        tree.add_node(0)
-        return tree
-    tree = nx.DiGraph()
-    root = 0
-    tree.add_node(root)
-    leaves = [root]
-    leaves_count = 1
-    next_label = 1
-    while leaves_count < num_leaves:
-        parent = leaves.pop(0)
-        left_child = next_label
-        right_child = next_label + 1
-        tree.add_node(left_child)
-        tree.add_node(right_child)
-        tree.add_edge(parent, left_child)
-        tree.add_edge(parent, right_child)
-        leaves_count += 1
-        next_label += 2
-        leaves.append(left_child)
-        leaves.append(right_child)
-    return tree
-
-def generate_unbalanced_tree_random(num_leaves):
-    if num_leaves < 1:
-        return nx.DiGraph()
-    if num_leaves == 1:
-        tree = nx.DiGraph()
-        tree.add_node(0)
-        return tree
-    tree = nx.DiGraph()
-    root = 0
-    tree.add_node(root)
-    leaves = [root]
-    leaves_count = 1
-    next_label = 1
-    while leaves_count < num_leaves:
-        parent = random.choice(leaves)
-        leaves.remove(parent)
-        left_child = next_label
-        right_child = next_label + 1
-        tree.add_node(left_child)
-        tree.add_node(right_child)
-        tree.add_edge(parent, left_child)
-        tree.add_edge(parent, right_child)
-        leaves_count += 1
-        next_label += 2
-        leaves.append(left_child)
-        leaves.append(right_child)
-    return tree
-
-def get_rooted_positions(tree, root=0):
-    if not tree.nodes:
-        return {}
-    undirected = tree.to_undirected()
-    dist_from_root = nx.shortest_path_length(undirected, source=root)
-    for node, dist in dist_from_root.items():
-        tree.nodes[node]['subset'] = dist
-    pos = nx.multipartite_layout(tree, subset_key='subset', align='vertical', scale=2.0)
-    pos_swapped = {node: (y, -x) for node, (x, y) in pos.items()}
-    return pos_swapped
-
-def draw_tree(tree, title, root=0):
-    height = calculate_height(tree, root)
-    pos = get_rooted_positions(tree, root)
-    fig, ax = plt.subplots()
-    nx.draw(tree, pos, with_labels=True, node_size=600, node_color="lightblue", arrows=False, ax=ax)
-    ax.set_title(f"{title}\\nHeight: {height}", fontsize=12)
-    ax.axis("off")
-    buf = BytesIO()
-    fig.savefig(buf, format='png')
-    buf.seek(0)
-    data = base64.b64encode(buf.read()).decode('utf-8')
-    plt.close(fig)
-    return data
-
-def draw_trees(num_leaves):
-    balanced = generate_balanced_tree(num_leaves)
-    unbalanced = generate_unbalanced_tree_random(num_leaves)
-    img_bal = draw_tree(balanced, f"Balanced (Leaves={num_leaves})")
-    img_unbal = draw_tree(unbalanced, f"Random Unbalanced (Leaves={num_leaves})")
-    return (img_bal, img_unbal)
+# (Insert Python code here from your script)
         `;
-
-        // Load the Python code
         await pyodide.runPythonAsync(pythonCode);
 
-        // Expose a JS-callable function in global scope
-        window.drawTrees = async function(numLeaves) {
+        window.drawTrees = async function (numLeaves) {
           const pyRes = await pyodide.runPythonAsync(`
 bal64, unbal64 = draw_trees(${numLeaves})
 (bal64, unbal64)
           `);
           return pyRes.toJs();
         };
+      } catch (error) {
+        console.error("Error loading Pyodide or executing code:", error);
+        alert("An error occurred while loading the application.");
+      }
+    }
+
+    main().then(() => {
+      const slider = document.getElementById("slider");
+      const sliderVal = document.getElementById("slider-value");
+      const titleBalanced = document.getElementById("title-balanced");
+      const titleUnbalanced = document.getElementById("title-unbalanced");
+      const imgBalanced = document.getElementById("img-balanced");
+      const imgUnbalanced = document.getElementById("img-unbalanced");
+
+      async function updateTrees() {
+        const numLeaves = slider.value;
+        sliderVal.textContent = numLeaves;
+        const [b64Balanced, b64Unbalanced] = await window.drawTrees(numLeaves);
+        imgBalanced.src = "data:image/png;base64," + b64Balanced;
+        imgUnbalanced.src = "data:image/png;base64," + b64Unbalanced;
+
+        titleBalanced.textContent = "Balanced (Leaves=" + numLeaves + ")";
+        titleUnbalanced.textContent = "Random Unbalanced (Leaves=" + numLeaves + ")";
       }
 
-      // Launch Pyodide right away
-      main().then(() => {
-        const slider = document.getElementById("slider");
-        const sliderVal = document.getElementById("slider-value");
-        const titleBalanced = document.getElementById("title-balanced");
-        const titleUnbalanced = document.getElementById("title-unbalanced");
-        const imgBalanced = document.getElementById("img-balanced");
-        const imgUnbalanced = document.getElementById("img-unbalanced");
-
-        async function updateTrees() {
-          const numLeaves = slider.value;
-          sliderVal.textContent = numLeaves;
-          const [b64Balanced, b64Unbalanced] = await window.drawTrees(numLeaves);
-          imgBalanced.src = "data:image/png;base64," + b64Balanced;
-          imgUnbalanced.src = "data:image/png;base64," + b64Unbalanced;
-
-          titleBalanced.textContent = "Balanced (Leaves=" + numLeaves + ")";
-          titleUnbalanced.textContent = "Random Unbalanced (Leaves=" + numLeaves + ")";
-        }
-
-        slider.addEventListener("input", updateTrees);
-        updateTrees(); // initial draw
-      });
-    </script>
-  </body>
+      slider.addEventListener("input", updateTrees);
+      updateTrees();
+    });
+  </script>
+</body>
 </html>
